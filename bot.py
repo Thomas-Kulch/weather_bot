@@ -72,7 +72,7 @@ def user_response(city, date, condition, max_temp, min_temp, avg_temp, humidity,
     elif wind_speed > 20:
         overview = "💨 **Very windy conditions.**"
 
-    return f"{base_response}\n\n{overview}"
+    return f"{base_response}\n\n{overview}\n\n"
 
 
 def save_forecasts():
