@@ -28,18 +28,32 @@ tracked_forecasts = {}
 
 
 def parse_date(date_str):
-    """Try parsing the date in multiple formats."""
+    """Try parsing the date in multiple formats, adding current year if not specified."""
     date_formats = [
         "%Y-%m-%d",  # YYYY-MM-DD
         "%m/%d/%Y",  # MM/DD/YYYY
+        "%m/%d",  # MM/DD (will add current year)
+        "%m-%d",  # MM-DD (will add current year)
     ]
+
+    current_year = datetime.date.today().year
+
     for fmt in date_formats:
         try:
-            return datetime.datetime.strptime(date_str, fmt).date()
+            # If format doesn't include year, append current year
+            if '%Y' not in fmt:
+                date_str_with_year = f"{date_str}/{current_year}"
+                parsed_date = datetime.datetime.strptime(date_str_with_year, f"{fmt}/%Y").date()
+            else:
+                parsed_date = datetime.datetime.strptime(date_str, fmt).date()
+
+            return parsed_date
         except ValueError:
             continue
+
     raise ValueError(
-        "Invalid date format. Please use one of the following formats: YYYY-MM-DD, MM/DD/YYYY")
+        "Invalid date format. Please use one of the following formats: "
+        "YYYY-MM-DD, MM/DD/YYYY, MM/DD, MM-DD")
 
 
 def user_response(city, date, condition, max_temp, min_temp, avg_temp, humidity, rain_chance, wind_speed):
@@ -71,8 +85,10 @@ def user_response(city, date, condition, max_temp, min_temp, avg_temp, humidity,
         overview = "🔥 **Hot and humid—stay hydrated!**"
     elif wind_speed > 20:
         overview = "💨 **Very windy conditions.**"
+    else:
+        overview = ""
 
-    return f"{base_response}\n\n{overview}"
+    return f"{base_response}\n\n{overview}\n\n"
 
 
 def save_forecasts():
