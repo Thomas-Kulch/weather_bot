@@ -1,8 +1,12 @@
 """
-Bot main file
-Update this with comments on what everything does. Make sure we know exactly what every line does
+WeatherBoy
+Weather discord bot used to analyze weather conditions in nearby areas.
+Ask the bot for forecasts on a specific town or city and get updates throughout the week
 
-Essential files for AWS are this, .env, tracked_forecasts.json, and err.log
+Methods:
+    !forecast city date - get a forecast and store that data until the day of
+    !weather - get updated forecast for previously requested dates/cities
+    !remove city date - remove a record
 """
 import os
 import discord
@@ -14,10 +18,11 @@ import uuid
 import json
 import atexit
 
-load_dotenv()
+load_dotenv() # Load .env file for token and api keys
 TOKEN = os.getenv('DISCORD_TOKEN')
 API_KEY = os.getenv('API_KEY')
 
+# Discord bot permissions
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
@@ -28,7 +33,12 @@ tracked_forecasts = {}
 
 
 def parse_date(date_str):
-    """Try parsing the date in multiple formats, adding current year if not specified."""
+    """
+    Try parsing the date in multiple formats, adding current year if not specified.
+
+    Returns:
+        Parsed date
+    """
     date_formats = [
         "%Y-%m-%d",  # YYYY-MM-DD
         "%m/%d/%Y",  # MM/DD/YYYY
@@ -57,6 +67,21 @@ def parse_date(date_str):
 
 
 def user_response(city, date, condition, max_temp, min_temp, avg_temp, humidity, rain_chance, wind_speed):
+    """
+    Generate a comprehensive weather response with golfing recommendations.
+
+    Returns:
+        Detailed weather forecast and golfing recommendation
+    """
+    # Weather condition categorizations
+    weather_categories = {
+        'good_weather': ["Sunny", "Partly Cloudy", "Partly Cloudy ", "Overcast", "Mist"],
+        'decent_weather': ["Cloudy", "Cloudy ", "Fog", "Patchy light drizzle", "Light drizzle", "Patchy light rain"],
+        'poor_weather': ["Heavy Rain", "Heavy rain at times", "Moderate Rain", "Snow", "Sleet", "Hail", "Torrential rain shower", "Moderate or heavy rain shower", "Thundery outbreaks possible"],
+        'extreme_weather': ["Tornado", "Hurricane", "Severe Thunderstorm", "Freezing rain"]
+    }
+
+    # Base forecast information
     base_response = (
         f"📅 **Weather Forecast for {city.capitalize()} on {date}:**\n"
         f"🔹 **Condition:** {condition}\n"
@@ -66,37 +91,71 @@ def user_response(city, date, condition, max_temp, min_temp, avg_temp, humidity,
         f"🌧 **Chance of Rain:** {rain_chance}%"
     )
 
-    # Weather categories
-    good_weather = ["Sunny", "Partly Cloudy", "Overcast", "Mist"]
-    decent_weather = ["Cloudy", "Fog", "Patchy light drizzle", "Light drizzle"]
+    # Golfing recommendation logic with comprehensive conditions
+    def get_golf_recommendation():
+        # Temperature-based recommendations
+        if avg_temp < 45:
+            return "❄️ **Too cold. Brr**"
 
-    # Determine golfing suitability
-    if avg_temp >= 60 and condition in good_weather and rain_chance < 40 and wind_speed < 15 and humidity < 85:
-        overview = "🏌️ **Perfect day for golf!**"
-    elif condition in decent_weather and avg_temp >= 55 and wind_speed > 10:
-        overview = "⛳ **Decent golfing weather. A little windy.**"
-    elif rain_chance > 50:
-        overview = "☔ **Expect rain. Poor golfing weather.**"
-    elif avg_temp < 45:
-        overview = "❄️ **Too cold to golf.**"
-    elif avg_temp < 65 and wind_speed > 10:
-        overview = "🌬 **A bit chilly, but playable.**"
-    elif avg_temp > 80 and humidity >= 85:
-        overview = "🔥 **Hot and humid—stay hydrated!**"
-    elif wind_speed > 20:
-        overview = "💨 **Very windy conditions.**"
-    else:
-        overview = ""
+        if max_temp > 95:
+            return "🔥 **It's going to be hot as hell.**"
 
-    return f"{base_response}\n\n{overview}\n\n"
+        # Wind conditions
+        if wind_speed > 25:
+            return "💨 **It's going to be very windy**"
+
+        # Rain and precipitation
+        if rain_chance > 70 or condition in weather_categories['poor_weather']:
+            return "☔ **High chance of rain or poor weather.**"
+
+        if condition in weather_categories['extreme_weather']:
+            return "⚠️ **Weather is ass. Stay inside.**"
+
+        # Ideal golfing conditions
+        if (60 <= max_temp <= 85 and
+                condition in weather_categories['good_weather'] and
+                rain_chance < 30 and
+                wind_speed < 15 and
+                humidity < 80):
+            return "☀️ **Perfect weather!**"
+
+        # Decent golfing conditions
+        if (condition in weather_categories['decent_weather'] and
+                50 <= max_temp <= 70 and
+                rain_chance < 50 and
+                wind_speed < 20):
+            return "⛳ **Decent golfing weather.**"
+
+        # Marginal conditions
+        if 50 <= avg_temp < 60 or (15 < wind_speed <= 25):
+            return "🌬 **Chilly and windy**"
+
+        # Humidity considerations
+        if humidity >= 90:
+            return "💦 **High humidity. Prepare to sweat.**"
+
+        # Default case
+        return "🤷 **Mixed weather conditions.**"
+
+    # Compile the final response
+    golf_recommendation = get_golf_recommendation()
+
+    final_response = (
+        f"{base_response}\n\n"
+        f"{golf_recommendation}\n\n"
+    )
+
+    return final_response
 
 
 def save_forecasts():
+    """Save forecasts in json in case the bot reboots"""
     with open("tracked_forecasts.json", "w") as f:
         json.dump(tracked_forecasts, f)
 
 
 def load_forecasts():
+    """Load stored forecasts from json"""
     global tracked_forecasts
     if os.path.exists("tracked_forecasts.json"):
         with open("tracked_forecasts.json", "r") as f:
@@ -106,13 +165,14 @@ def load_forecasts():
                 # If the file is empty or malformed, set tracked_forecasts to an empty dictionary
                 tracked_forecasts = {}
 
-
 def save_on_exit():
+    """Save forecasts to json on exit"""
     save_forecasts()
 
 
 @bot.event
 async def on_ready():
+    """Load forecasts on startup"""
     print(f"Logged in as {bot.user}")
     load_forecasts()  # Load forecasts from file when the bot starts
 
@@ -311,5 +371,5 @@ async def remove_forecast(ctx, *, args):
         await ctx.send(f"An error occurred: {str(e)}")
 
 
-atexit.register(save_on_exit)
+atexit.register(save_on_exit) # Save forecasts dictionary to json file
 bot.run(TOKEN)
