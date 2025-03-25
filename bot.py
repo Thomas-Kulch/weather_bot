@@ -120,14 +120,14 @@ def user_response(city, date, condition, max_temp, min_temp, avg_temp, humidity,
             return "☀️ **Perfect weather!**"
 
         # Decent golfing conditions
-        if (condition in weather_categories['decent_weather'] and
-                50 <= max_temp <= 70 and
-                rain_chance < 50 and
+        if ((condition in weather_categories['decent_weather'] or
+             condition in weather_categories['good_weather']) and
+                60 >= max_temp >= 50 > rain_chance and
                 wind_speed < 20):
             return "⛳ **Decent golfing weather.**"
 
         # Marginal conditions
-        if 50 <= avg_temp < 60 or (15 < wind_speed <= 25):
+        if 45 <= avg_temp < 60 or (10 < wind_speed <= 25):
             return "🌬 **Chilly and windy**"
 
         # Humidity considerations
@@ -135,7 +135,7 @@ def user_response(city, date, condition, max_temp, min_temp, avg_temp, humidity,
             return "💦 **High humidity. Prepare to sweat.**"
 
         # Default case
-        return "**Mixed weather conditions.**"
+        return ""
 
     # Compile the final response
     golf_recommendation = get_golf_recommendation()
