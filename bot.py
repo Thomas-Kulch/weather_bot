@@ -135,7 +135,7 @@ def user_response(city, date, condition, max_temp, min_temp, avg_temp, humidity,
             return "💦 **High humidity. Prepare to sweat.**"
 
         # Default case
-        return "🤷 **Mixed weather conditions.**"
+        return "**Mixed weather conditions.**"
 
     # Compile the final response
     golf_recommendation = get_golf_recommendation()
